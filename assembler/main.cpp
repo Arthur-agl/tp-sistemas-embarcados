@@ -24,6 +24,11 @@ typedef struct instruction {
     enum instruction_type type;
 } instruction_t;
 
+typedef struct mem_data {
+    size_t size;
+    int value;
+} mem_data_t;
+
 std::map<std::string, instruction_t> const opcodes = {
     { "stop",     { 0x00, TYPE_NO_OPER } },
     { "load",     { 0x01, TYPE_REG_MEM } },
@@ -49,39 +54,67 @@ std::map<std::string, instruction_t> const opcodes = {
     { "storei",   { 0x15, TYPE_TWO_REG } },
 };
 
-// unsigned int parseLine (std::string &line) {
-//     std::istringstream sourceLine(line);
-//     std::string tok;
+std::string parseLabel(std::string tok) {
+    std::size_t endPos = tok.find(":");
+    if (tok[0] == '_' && endPos != std::string::npos) {
+        return tok.substr(0, endPos);
+    }
+    return "";
+}
 
-//     while (sourceLine >> tok) {
-//         if (tok[0] == '_') { // label
-
-//         }
-//     }
-// }
-
-void parseLabel(std::map<std::string, unsigned int> &symbolMap, std::string line, unsigned int instructionCounter) {
+/**
+ * Faz a etapa 1 do montador para uma linha.
+ * @param symbolMap tabela de símbolos
+ * @param dataMap tabela de constantes .data
+ * @param line linha do programa não vazia e sem comentários
+ * @param ilc Instruction Location Counter
+ * @returns novo ilc
+ **/
+size_t parseLineStep1 (
+    std::map<std::string, size_t> &symbolMap,
+    std::map<std::string, mem_data_t> &dataMap,
+    std::string line,
+    size_t ilc
+) {
     std::istringstream sourceLine(line);
     std::string tok;
-
     if (sourceLine >> tok) {
-        std::size_t endPos = tok.find(":");
-        if (tok[0] == '_' && endPos != std::string::npos) {
-            symbolMap.insert({ tok.substr(0, endPos), instructionCounter });
+        std::string label = parseLabel(tok);
+
+        if (!label.empty()) { // label
+            symbolMap[label] = ilc;
+            sourceLine >> tok;
         }
+
+        if (tok == ".data") { // pseudo
+            size_t size;
+            int value;
+            sourceLine >> size >> value;
+            symbolMap[label] = -1;
+            dataMap[label] = { size, value };
+            return ilc; // não muda ilc
+        }
+
+        const int instructionSize = 2;
+        return ilc + instructionSize; // incrementa ilc
+    } else {
+        return ilc; // linha vazia
     }
 }
+
+void parseLineStep2 () {}
 
 int main (int argc, char** argv) {
     if (argc < 2) return help(argv[0]);
 
-    std::map<std::string, unsigned int> symbolMap;
+    std::map<std::string, size_t> symbolMap;
+    std::map<std::string, mem_data_t> dataMap;
 
     std::ifstream sourceFile;
     sourceFile.open(argv[1]);
     std::string line;
 
-    unsigned int instructionCounter = 0;
+    size_t ilc = 0;
     // 1a passada
     while (std::getline(sourceFile, line)) {
         std::string noCommentLine = line.substr(0, line.find(";"));
@@ -89,12 +122,25 @@ int main (int argc, char** argv) {
         size_t firstNonWhiteSpaceIdx = noCommentLine.find_first_not_of(WHITESPACE);
 
         if (firstNonWhiteSpaceIdx != std::string::npos) {
-            parseLabel(symbolMap, noCommentLine.substr(firstNonWhiteSpaceIdx), instructionCounter++);
+            ilc = parseLineStep1(symbolMap, dataMap, line, ilc);
         }
     }
 
+    // nesse ponto, ilc é o próximo endereço livre da memória
+
+    for (auto data : dataMap) {
+        symbolMap[data.first] = ilc;
+        ilc += data.second.size;
+    }
+
+    std::cout << "Symbol table:\n";
     for (auto a : symbolMap) {
         std::cout << a.first << ": " << a.second << "\n";
+    }
+
+    std::cout << "\nData table:\n";
+    for (auto a : dataMap) {
+        std::cout << a.first << ": " << a.second.size << " " << a.second.value << "\n";
     }
 
     sourceFile.clear();
@@ -110,6 +156,6 @@ int main (int argc, char** argv) {
     }
 
 
-    std::cout << "Filename: " << argv[1] << std::endl;
+    std::cout << "\nFilename: " << argv[1] << std::endl;
     return 0;
 }
