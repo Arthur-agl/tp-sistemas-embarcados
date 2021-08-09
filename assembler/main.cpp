@@ -1,7 +1,9 @@
+#include <iomanip>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <map>
+#include <bitset>
 
 int help (char* binName) {
     std::cerr << "Usage: " << binName << " <source_file>" << std::endl;
@@ -26,8 +28,15 @@ typedef struct instruction {
 
 typedef struct mem_data {
     size_t size;
-    int value;
+    long long value;
 } mem_data_t;
+
+std::map<std::string, unsigned int> const registers = {
+    { "a0", 0 },
+    { "a1", 1 },
+    { "a2", 2 },
+    { "a3", 3 }
+};
 
 std::map<std::string, instruction_t> const opcodes = {
     { "stop",     { 0x00, TYPE_NO_OPER } },
@@ -54,12 +63,20 @@ std::map<std::string, instruction_t> const opcodes = {
     { "storei",   { 0x15, TYPE_TWO_REG } },
 };
 
-std::string parseLabel(std::string tok) {
+std::string parseLabel (std::string tok) {
     std::size_t endPos = tok.find(":");
     if (tok[0] == '_' && endPos != std::string::npos) {
         return tok.substr(0, endPos);
     }
     return "";
+}
+
+std::string to_lower (std::string str) {
+    std::string lowerStr = "";
+    for (char c : str) {
+        lowerStr += tolower(c);
+    }
+    return lowerStr;
 }
 
 /**
@@ -102,7 +119,82 @@ size_t parseLineStep1 (
     }
 }
 
-void parseLineStep2 () {}
+bool parseLineStep2 (
+    std::map<std::string, size_t> &symbolMap,
+    std::string line,
+    unsigned int &output
+) {
+    output = 0;
+
+    std::istringstream sourceLine(line);
+    std::string tok;
+    if (sourceLine >> tok) {
+        std::string label = parseLabel(tok);
+
+        if (!label.empty()) { // ignora label
+            sourceLine >> tok;
+        }
+
+        if (tok == ".data") { // pseudo
+            return false;
+        }
+
+        instruction_t inst = opcodes.at(to_lower(tok));
+        
+        output |= (inst.opcode << 11); // 11 = instruction_size (16) - opcode_size (5)
+
+        switch (inst.type) {
+            case TYPE_ONE_REG:
+                sourceLine >> tok;
+                output |= registers.at(to_lower(tok));
+                break;
+            
+            case TYPE_TWO_REG:
+                sourceLine >> tok;
+                output |= (registers.at(to_lower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                sourceLine >> tok;
+                output |= registers.at(to_lower(tok));
+                break;
+
+            case TYPE_MEM_ADR:
+                sourceLine >> tok;
+                if (tok[0] == '_') { // label
+                    output |= (symbolMap.at(tok));
+                } else {
+                    output |= (std::stoi(tok) & 0b111111111);
+                }
+                break;
+
+            case TYPE_REG_MEM:
+                sourceLine >> tok;
+                output |= (registers.at(to_lower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                sourceLine >> tok;
+                if (tok[0] == '_') { // label
+                    output |= (symbolMap.at(tok));
+                } else {
+                    output |= (std::stoi(tok) & 0b111111111);
+                }
+                break;
+
+            case TYPE_REG_IMM:
+                sourceLine >> tok;
+                output |= (registers.at(to_lower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                sourceLine >> tok;
+                output |= (std::stoi(tok) & 0b111111111);
+                break;
+            case TYPE_NO_OPER:
+            default:
+                break;
+        }
+
+        return true;
+    }
+    return false;
+}
+
+std::string byte2str (unsigned char bin) {
+    return std::bitset<8>(bin).to_string();
+}
 
 int main (int argc, char** argv) {
     if (argc < 2) return help(argv[0]);
@@ -112,10 +204,16 @@ int main (int argc, char** argv) {
 
     std::ifstream sourceFile;
     sourceFile.open(argv[1]);
+
+    if (!sourceFile.is_open()) {
+        std::cerr << "Unable to open file " << argv[1] << "\n";
+        return 2;
+    }
+
     std::string line;
 
     size_t ilc = 0;
-    // 1a passada
+    // 1o passo
     while (std::getline(sourceFile, line)) {
         std::string noCommentLine = line.substr(0, line.find(";"));
         
@@ -133,29 +231,52 @@ int main (int argc, char** argv) {
         ilc += data.second.size;
     }
 
-    std::cout << "Symbol table:\n";
-    for (auto a : symbolMap) {
-        std::cout << a.first << ": " << a.second << "\n";
-    }
-
-    std::cout << "\nData table:\n";
-    for (auto a : dataMap) {
-        std::cout << a.first << ": " << a.second.size << " " << a.second.value << "\n";
-    }
-
+    // volta para começo do arquivo
     sourceFile.clear();
     sourceFile.seekg(0);
+
+    // imprime boilerplate do formato de arquivo de saída
+    std::cout << "DEPTH = 128;\nWIDTH = 8;\nADDRESS_RADIX = HEX;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n\n";
     
-    // 2a passada
+    size_t byteCount = 0;
+
+    // 2o passo
     while (std::getline(sourceFile, line)) {
         std::string noCommentLine = line.substr(0, line.find(";"));
         
         size_t firstNonWhiteSpaceIdx = noCommentLine.find_first_not_of(WHITESPACE);
 
-        // TODO: parse line (instruction)
+        if (firstNonWhiteSpaceIdx != std::string::npos) {
+            line = line.substr(firstNonWhiteSpaceIdx, std::string::npos); // trim beggining whitespaces of line
+            unsigned int result;
+            if (parseLineStep2(symbolMap, line, result)) {
+                unsigned char b1, b2;
+                b1 = result >> 8;
+                b2 = result;
+                std::cout << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
+                std::cout << "        :  " << byte2str(b1) << ";              -- " << line << "\n";
+                byteCount++;
+                std::cout << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
+                std::cout << "        :  " << byte2str(b2) << "; \n";
+                byteCount++;
+            }
+        }
     }
 
+    for (auto data : dataMap) {
+        for (int i = data.second.size - 1; i >= 0; i--) {
+            std::cout << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
+            std::cout << "        :  " << byte2str((unsigned char) (data.second.value  >> (i*8)));
+            if ((size_t) i == data.second.size - 1) std::cout << std::dec << ";              -- .data " << data.second.size << " " << data.second.value << "\n";
+            else std::cout << "; \n";
+            byteCount++;
+        }
+    }
 
-    std::cout << "\nFilename: " << argv[1] << std::endl;
+    // imprime boilerplate do formato de arquivo de saída
+    std::cout << "[" << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
+    std::cout << "..7F]  :  00000000; \nEND; \n";
+
+    sourceFile.close();
     return 0;
 }
