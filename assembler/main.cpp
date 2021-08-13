@@ -63,6 +63,11 @@ std::map<std::string, instruction_t> const opcodes = {
     { "storei",   { 0x15, TYPE_TWO_REG } },
 };
 
+/**
+ * Extrai a label de um token, caso ela exista
+ * @param tok token
+ * @returns a label, se existir, ou uma string vazia
+ **/
 std::string parseLabel (std::string tok) {
     std::size_t endPos = tok.find(":");
     if (tok[0] == '_' && endPos != std::string::npos) {
@@ -71,7 +76,7 @@ std::string parseLabel (std::string tok) {
     return "";
 }
 
-std::string to_lower (std::string str) {
+std::string toLower (std::string str) {
     std::string lowerStr = "";
     for (char c : str) {
         lowerStr += tolower(c);
@@ -107,7 +112,7 @@ size_t parseLineStep1 (
             size_t size;
             int value;
             sourceLine >> size >> value;
-            symbolMap[label] = -1;
+            symbolMap[label] = -1; // temporariamente
             dataMap[label] = { size, value };
             return ilc; // não muda ilc
         }
@@ -119,6 +124,13 @@ size_t parseLineStep1 (
     }
 }
 
+/**
+ * Faz a etapa 2 do montador para uma linha.
+ * @param symbolMap tabela de símbolos
+ * @param line linha do programa não vazia e sem comentários
+ * @param output saída já codificada da instrução da linha, caso exista
+ * @returns se `output` deve ser considerado ou não como uma codificação de instrução
+ **/
 bool parseLineStep2 (
     std::map<std::string, size_t> &symbolMap,
     std::string line,
@@ -139,21 +151,21 @@ bool parseLineStep2 (
             return false;
         }
 
-        instruction_t inst = opcodes.at(to_lower(tok));
+        instruction_t inst = opcodes.at(toLower(tok));
         
         output |= (inst.opcode << 11); // 11 = instruction_size (16) - opcode_size (5)
 
         switch (inst.type) {
             case TYPE_ONE_REG:
                 sourceLine >> tok;
-                output |= registers.at(to_lower(tok));
+                output |= registers.at(toLower(tok));
                 break;
             
             case TYPE_TWO_REG:
                 sourceLine >> tok;
-                output |= (registers.at(to_lower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                output |= (registers.at(toLower(tok)) << 9); // 9 = remain length (11) - register_size (2)
                 sourceLine >> tok;
-                output |= registers.at(to_lower(tok));
+                output |= registers.at(toLower(tok));
                 break;
 
             case TYPE_MEM_ADR:
@@ -167,7 +179,7 @@ bool parseLineStep2 (
 
             case TYPE_REG_MEM:
                 sourceLine >> tok;
-                output |= (registers.at(to_lower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                output |= (registers.at(toLower(tok)) << 9); // 9 = remain length (11) - register_size (2)
                 sourceLine >> tok;
                 if (tok[0] == '_') { // label
                     output |= (symbolMap.at(tok));
@@ -178,7 +190,7 @@ bool parseLineStep2 (
 
             case TYPE_REG_IMM:
                 sourceLine >> tok;
-                output |= (registers.at(to_lower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                output |= (registers.at(toLower(tok)) << 9); // 9 = remain length (11) - register_size (2)
                 sourceLine >> tok;
                 output |= (std::stoi(tok) & 0b111111111);
                 break;
@@ -192,6 +204,11 @@ bool parseLineStep2 (
     return false;
 }
 
+/**
+ * Transforma um número sem sinal de 8 bits em uma string contendo sua representação em binário.
+ * @param bin número sem sinal de 8 bits
+ * @returns representação do número em binário
+ **/
 std::string byte2str (unsigned char bin) {
     return std::bitset<8>(bin).to_string();
 }
