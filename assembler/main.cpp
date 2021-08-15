@@ -12,6 +12,7 @@ int help (char* binName) {
 
 const std::string WHITESPACE = " \n\r\t\f\v";
 
+// Cada caractere representa 1 bit da instrução
 enum instruction_type {
     TYPE_NO_OPER, // ___________
     TYPE_REG_MEM, // R1MMMMMMMMM
@@ -26,6 +27,7 @@ typedef struct instruction {
     enum instruction_type type;
 } instruction_t;
 
+//Representa dados fixos, definidos pelas labels .data
 typedef struct mem_data {
     size_t size;
     long long value;
@@ -63,6 +65,23 @@ std::map<std::string, instruction_t> const opcodes = {
     { "storei",   { 0x15, TYPE_TWO_REG } },
 };
 
+std::string toLower (std::string str) {
+    std::string lowerStr = "";
+    for (char c : str) {
+        lowerStr += tolower(c);
+    }
+    return lowerStr;
+}
+
+/**
+ * Transforma um número sem sinal de 8 bits em uma string contendo sua representação em binário.
+ * @param bin número sem sinal de 8 bits
+ * @returns representação do número em binário
+ **/
+std::string byte2str (unsigned char bin) {
+    return std::bitset<8>(bin).to_string();
+}
+
 /**
  * Extrai a label de um token, caso ela exista
  * @param tok token
@@ -74,14 +93,6 @@ std::string parseLabel (std::string tok) {
         return tok.substr(0, endPos);
     }
     return "";
-}
-
-std::string toLower (std::string str) {
-    std::string lowerStr = "";
-    for (char c : str) {
-        lowerStr += tolower(c);
-    }
-    return lowerStr;
 }
 
 /**
@@ -120,7 +131,7 @@ size_t parseLineStep1 (
         const int instructionSize = 2;
         return ilc + instructionSize; // incrementa ilc
     } else {
-        return ilc; // linha vazia
+        return ilc; //não incrementa o ilc, a linha é vazia
     }
 }
 
@@ -152,7 +163,7 @@ bool parseLineStep2 (
         }
 
         instruction_t inst = opcodes.at(toLower(tok));
-        
+
         output |= (inst.opcode << 11); // 11 = instruction_size (16) - opcode_size (5)
 
         switch (inst.type) {
@@ -204,15 +215,6 @@ bool parseLineStep2 (
     return false;
 }
 
-/**
- * Transforma um número sem sinal de 8 bits em uma string contendo sua representação em binário.
- * @param bin número sem sinal de 8 bits
- * @returns representação do número em binário
- **/
-std::string byte2str (unsigned char bin) {
-    return std::bitset<8>(bin).to_string();
-}
-
 int main (int argc, char** argv) {
     if (argc < 2) return help(argv[0]);
 
@@ -233,7 +235,6 @@ int main (int argc, char** argv) {
     // 1o passo
     while (std::getline(sourceFile, line)) {
         std::string noCommentLine = line.substr(0, line.find(";"));
-        
         size_t firstNonWhiteSpaceIdx = noCommentLine.find_first_not_of(WHITESPACE);
 
         if (firstNonWhiteSpaceIdx != std::string::npos) {
@@ -254,7 +255,7 @@ int main (int argc, char** argv) {
 
     // imprime boilerplate do formato de arquivo de saída
     std::cout << "DEPTH = 128;\nWIDTH = 8;\nADDRESS_RADIX = HEX;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n\n";
-    
+
     size_t byteCount = 0;
 
     // 2o passo
@@ -264,7 +265,7 @@ int main (int argc, char** argv) {
         size_t firstNonWhiteSpaceIdx = noCommentLine.find_first_not_of(WHITESPACE);
 
         if (firstNonWhiteSpaceIdx != std::string::npos) {
-            line = line.substr(firstNonWhiteSpaceIdx, std::string::npos); // trim beggining whitespaces of line
+            line = line.substr(firstNonWhiteSpaceIdx, std::string::npos); // remove o whitespace no começo da linha
             unsigned int result;
             if (parseLineStep2(symbolMap, line, result)) {
                 unsigned char b1, b2;
