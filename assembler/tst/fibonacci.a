@@ -1,0 +1,66 @@
+; This program reads one number greater than zero n
+; and outputs the n-th Fibonacci number,
+; assuming the sequence starts at 0 (0,1,1,2,3,5,8,13,...)
+
+_Start: read A0
+
+        ;; test if input == 1.
+        load_c A1 1
+        subtract A1 A0
+        jmpz A1 _Ret0
+
+        ;; test if input == 2.
+        load_c A1 2
+        subtract A1 A0
+        jmpz A1 _Ret1
+
+        ;; Set up the stack with the initial values.
+        load_c A1 0
+        push A1
+
+        load_c A1 1
+        push A1
+
+        ;; Every loop, pop the last two values from the stack...
+_Loop:  pop A2
+        pop A1
+        
+        ;; and add them to get the next Fibonacci number.
+        add A1 A2
+
+        ;; Prepare the stack for the next value.
+        ;; This means pushing the oldest number back in the stack
+        ;; then pushing the new one we just calculated.
+        push A2
+        push A1
+
+        ;; Set up return value (R3)
+        move A1 A3
+
+        ;; Check if the current loop matches user input
+        load A1 _LoopI
+        subtract A1 A0
+        
+        ;; If it does, finish the program by writing R3 to the user.
+        jmpz A1 _Write
+
+        ;; If it doesn't, incrementet LoopIndex and keep looping
+        add A1 A0       ; Restore the value of LoopIndex
+
+        load_c A2 1 
+        add A1 A2       ; Increment LoopIndex
+        store A1 _LoopI ; Store LoopIndex
+
+        jump _Loop      ; Go back
+
+
+_Ret0:  load_c A3 0
+        jump _Write
+
+_Ret1:  load_c A3 1
+
+_Write: write A3
+    
+_Stop:  stop
+
+_LoopI: .data 2 3 ; Loop Index
