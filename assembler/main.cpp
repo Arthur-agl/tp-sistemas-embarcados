@@ -6,7 +6,7 @@
 #include <bitset>
 
 int help (char* binName) {
-    std::cerr << "Usage: " << binName << " <source_file>" << std::endl;
+    std::cerr << "Usage: " << binName << " <source_file> [output_file]" << std::endl;
     return 1;
 }
 
@@ -174,7 +174,7 @@ bool parseLineStep2 (
             
             case TYPE_TWO_REG:
                 sourceLine >> tok;
-                output |= (registers.at(toLower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                output |= (registers.at(toLower(tok)) << 9); // 9 = remain_length (11) - register_size (2)
                 sourceLine >> tok;
                 output |= registers.at(toLower(tok));
                 break;
@@ -190,7 +190,7 @@ bool parseLineStep2 (
 
             case TYPE_REG_MEM:
                 sourceLine >> tok;
-                output |= (registers.at(toLower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                output |= (registers.at(toLower(tok)) << 9); // 9 = remain_length (11) - register_size (2)
                 sourceLine >> tok;
                 if (tok[0] == '_') { // label
                     output |= (symbolMap.at(tok));
@@ -201,7 +201,7 @@ bool parseLineStep2 (
 
             case TYPE_REG_IMM:
                 sourceLine >> tok;
-                output |= (registers.at(toLower(tok)) << 9); // 9 = remain length (11) - register_size (2)
+                output |= (registers.at(toLower(tok)) << 9); // 9 = remain_length (11) - register_size (2)
                 sourceLine >> tok;
                 output |= (std::stoi(tok) & 0b111111111);
                 break;
@@ -216,7 +216,7 @@ bool parseLineStep2 (
 }
 
 int main (int argc, char** argv) {
-    if (argc < 2) return help(argv[0]);
+    if (argc < 2 || argc > 3) return help(argv[0]);
 
     std::map<std::string, size_t> symbolMap;
     std::map<std::string, mem_data_t> dataMap;
@@ -225,8 +225,18 @@ int main (int argc, char** argv) {
     sourceFile.open(argv[1]);
 
     if (!sourceFile.is_open()) {
-        std::cerr << "Unable to open file " << argv[1] << "\n";
+        std::cerr << "Unable to open file for reading " << argv[1] << "\n";
         return 2;
+    }
+
+    std::ofstream outputFile;
+    if (argc == 3) {
+        outputFile.open(argv[2]);
+        if (!outputFile.is_open()) {
+            std::cerr << "Unable to open file for writing " << argv[2] << "\n";
+            return 2;
+        }
+        std::cout.rdbuf(outputFile.rdbuf());
     }
 
     std::string line;
@@ -295,6 +305,5 @@ int main (int argc, char** argv) {
     std::cout << "[" << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
     std::cout << "..7F]  :  00000000; \nEND; \n";
 
-    sourceFile.close();
     return 0;
 }
