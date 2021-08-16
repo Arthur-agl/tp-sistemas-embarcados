@@ -63,6 +63,7 @@ std::map<std::string, instruction_t> const opcodes = {
     { "load_c",    { 0x13, TYPE_REG_IMM } },
     { "load_i",    { 0x14, TYPE_TWO_REG } },
     { "store_i",   { 0x15, TYPE_TWO_REG } },
+    { "copytop",   { 0x16, TYPE_ONE_REG } },
 };
 
 std::string toLower (std::string str) {
@@ -230,6 +231,7 @@ int main (int argc, char** argv) {
     }
 
     std::ofstream outputFile;
+    std::streambuf *coutBuf = std::cout.rdbuf(); // salva o buffer do cout
     if (argc == 3) {
         outputFile.open(argv[2]);
         if (!outputFile.is_open()) {
@@ -305,5 +307,8 @@ int main (int argc, char** argv) {
     std::cout << "[" << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
     std::cout << "..7F]  :  00000000; \nEND; \n";
 
+    sourceFile.close();
+    std::cout.rdbuf(coutBuf);
+    if (outputFile.is_open()) outputFile.close();
     return 0;
 }
