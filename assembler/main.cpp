@@ -295,7 +295,7 @@ int main (int argc, char** argv) {
         for (int i = data.second.size - 1; i >= 0; i--) {
             std::cout << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
             std::cout << "        :  " << byte2str((unsigned char) (data.second.value  >> (i*8)));
-            if ((size_t) i == data.second.size - 1) std::cout << std::dec << ";              -- .data " << data.second.size << " " << data.second.value << "\n";
+            if ((size_t) i == data.second.size - 1) std::cout << std::dec << ";              -- " << data.first << ": .data " << data.second.size << " " << data.second.value << "\n";
             else std::cout << "; \n";
             byteCount++;
         }
