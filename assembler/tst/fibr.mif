@@ -1,0 +1,63 @@
+DEPTH = 128;
+WIDTH = 8;
+ADDRESS_RADIX = HEX;
+DATA_RADIX = BIN;
+CONTENT
+BEGIN
+
+00        :  00011000;              -- _main: read A0
+01        :  00000000; 
+02        :  01101000;              -- push A0 ; parametro de _fib
+03        :  00000000; 
+04        :  01111000;              -- call _fib
+05        :  00001010; 
+06        :  00100000;              -- write A0 ; escreve o retorno de _fib
+07        :  00000000; 
+08        :  00000000;              -- stop
+09        :  00000000; 
+0A        :  10001000;              -- _fib: load_s A0 4 ; A0 = n
+0B        :  00000100; 
+0C        :  01100000;              -- move A0 A1 ; A1 = n
+0D        :  00000001; 
+0E        :  10011100;              -- load_c A2 3
+0F        :  00000011; 
+10        :  00110010;              -- subtract A1 A2 ; A1 -= 3
+11        :  00000010; 
+12        :  01011010;              -- jmpn A1 _fib_ret1 ; if (A1 < 0) return 1
+13        :  00110010; 
+14        :  10011010;              -- load_c A1 1
+15        :  00000001; 
+16        :  00110000;              -- subtract A0 A1
+17        :  00000001; 
+18        :  01101000;              -- push A0 ; parametro de _fib
+19        :  00000000; 
+1A        :  01111000;              -- call _fib
+1B        :  00001010; 
+1C        :  01100000;              -- move A0 A1 ; A1 = fib(n-1)
+1D        :  00000001; 
+1E        :  01110000;              -- pop A0 ; recupera o parametro de fib (n-1)
+1F        :  00000000; 
+20        :  01101000;              -- push A1 ; salva A1 (fib(n-1))
+21        :  00000001; 
+22        :  10011010;              -- load_c A1 1
+23        :  00000001; 
+24        :  00110000;              -- subtract A0 A1
+25        :  00000001; 
+26        :  01101000;              -- push A0 ; parametro de _fib
+27        :  00000000; 
+28        :  01111000;              -- call _fib ; A0 = fib((n-1)-1)
+29        :  00001010; 
+2A        :  01110000;              -- pop A1 ; desempilha o parametro
+2B        :  00000001; 
+2C        :  01110000;              -- pop A1 ; recupera fib(n-1)
+2D        :  00000001; 
+2E        :  00101000;              -- add A0 A1 ; A0 += A1
+2F        :  00000001; 
+30        :  10000000;              -- return
+31        :  00000000; 
+32        :  10011000;              -- _fib_ret1: load_c A0 1
+33        :  00000001; 
+34        :  10000000;              -- return
+35        :  00000000; 
+[36..7F]  :  00000000; 
+END; 

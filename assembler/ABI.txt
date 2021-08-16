@@ -1,0 +1,12 @@
+ABI
+===
+
+- todos os parâmetros são passados para a função através da pilha:
+    ex.: chamar uma função com assinatura `int _a (int b, int c)`
+        push A0 ; conteúdo de A0 é o primeiro parâmetro (b)
+        push A3 ; conteúdo de A3 é o segundo parâmetro (c)
+        call _a
+- os parâmetros ficam antes do endereço de retorno na pilha, devendo ser acessados com load_s R N, onde R é um registrador e N = 2k, para qualquer k > 0.
+- a função chamadora é responsável por empilhar os parâmetros e desempilhá-los após o termino da função chamada
+- o retorno da função deve estar no registrador A0
+- todos os registradores relevantes devem ser salvos pela função chamadora

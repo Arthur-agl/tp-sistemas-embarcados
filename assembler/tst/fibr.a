@@ -1,0 +1,41 @@
+; This program reads one number greater than zero n
+; and outputs the n-th Fibonacci number,
+; assuming the sequence starts at 1 (1,1,2,3,5,8,13,...)
+
+_main: read A0
+    push A0 ; parametro de _fib
+    call _fib
+    write A0 ; escreve o retorno de _fib
+    stop
+
+
+_fib: load_s A0 4 ; A0 = n
+
+    ; se <= 2 retorna 1
+    move A0 A1 ; A1 = n
+    load_c A2 3
+    subtract A1 A2 ; A1 -= 3
+    jmpn A1 _fib_ret1 ; if (A1 < 0) return 1
+
+    load_c A1 1
+    subtract A0 A1
+    push A0 ; parametro de _fib
+    call _fib
+    move A0 A1 ; A1 = fib(n-1)
+
+    pop A0 ; recupera o parametro de fib (n-1)
+    push A1 ; salva A1 (fib(n-1))
+
+    load_c A1 1
+    subtract A0 A1
+    push A0 ; parametro de _fib
+    call _fib ; A0 = fib((n-1)-1)
+
+    pop A1 ; desempilha o parametro
+    pop A1 ; recupera fib(n-1)
+    add A0 A1 ; A0 += A1
+
+    return
+
+_fib_ret1: load_c A0 1
+    return

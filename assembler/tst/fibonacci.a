@@ -4,10 +4,11 @@
 
 _Start: read A0
 
-        ;; test if input == 1.
-        load_c A1 1
-        subtract A1 A0
-        jmpz A1 _Ret0
+        ;; test if input <= 1.
+        move A0 A2
+        load_c A1 2
+        subtract A2 A1
+        jmpn A2 _Ret0
 
         ;; test if input == 2.
         load_c A1 2
