@@ -1,5 +1,5 @@
-- vc que criou o cpusim?
-- .data's em lugares aleatórios do código devem produzir saída no lugar da declaração ou junto com as outras variáveis?
-- a ordem dos operandos do move do cpusim é o contrário do move da especificação
-- 3 funções com nome diferente no cpusim e na especificação (store_i, load_i e load_c)
-- perguntar sobre chamada de função (conferir ABI)
+- vc que criou o cpusim? não
+- .data's em lugares aleatórios do código devem produzir saída no lugar da declaração ou junto com as outras variáveis? nós que escolhemos
+- a ordem dos operandos do move do cpusim é o contrário do move da especificação: deixar a do cpusim
+- 3 funções com nome diferente no cpusim e na especificação (store_i, load_i e load_c): deixar a do cpusim
+- perguntar sobre chamada de função (conferir ABI): é como fizemos
