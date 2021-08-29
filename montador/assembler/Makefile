@@ -1,9 +1,13 @@
-SOURCE_FILES = main.cpp
+MONTADOR_SRC = montador.cpp
+MONTADOR_OUT = montador
 
-TARGET = montador
+LIGADOR_SRC = ligador.cpp
+LIGADOR_OUT = ligador
 
 all:
-	g++ -Wall $(SOURCE_FILES) -o $(TARGET)
+	g++ -Wall $(MONTADOR_SRC) -o $(MONTADOR_OUT)
+	g++ -Wall $(LIGADOR_SRC) -o $(LIGADOR_OUT)
 
 clean:
-	rm $(TARGET)
+	rm $(MONTADOR_OUT)
+	rm $(LIGADOR_OUT)
