@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <map>
+#include <vector>
 #include <bitset>
 
 int help (char* binName) {
@@ -27,7 +28,12 @@ typedef struct instruction {
     enum instruction_type type;
 } instruction_t;
 
-// dados fixos, definidos pelas labels .data
+typedef struct sym_data {
+    size_t address;
+    bool external;
+} sym_data_t;
+
+//Representa dados fixos, definidos pelas labels .data
 typedef struct mem_data {
     size_t size;
     long long value;
@@ -35,9 +41,10 @@ typedef struct mem_data {
 
 // entrada da tabela de relocação
 typedef struct module_meta {
-    char referrenceType; // (D)ata ou (T)ext
-    char locationType;   // (I)nternal ou (E)xternal
-    int value;
+    char locationType;   // (E)xternal ou (G)lobal
+    char referenceType;  // (D)ata ou (T)ext
+    size_t address;
+    std::vector<size_t> locations;
 } module_meta_t;
 
 std::map<std::string, unsigned int> const registers = {
@@ -107,13 +114,13 @@ std::string parseLabel (std::string tok) {
  * Faz a etapa 1 do montador para uma linha.
  * @param symbolMap tabela de símbolos
  * @param dataMap tabela de constantes .data
- * @param referrenceMap tabela de referências externas
+ * @param referenceMap tabela de referências externas e globais
  * @param line linha do programa não vazia e sem comentários
  * @param ilc Instruction Location Counter
  * @returns novo ilc
  **/
 size_t parseLineStep1 (
-    std::map<std::string, size_t> &symbolMap,
+    std::map<std::string, sym_data_t> &symbolMap,
     std::map<std::string, mem_data_t> &dataMap,
     std::map<std::string, module_meta_t> &referenceMap,
 
@@ -125,8 +132,8 @@ size_t parseLineStep1 (
     if (sourceLine >> tok) {
         std::string label = parseLabel(tok);
 
-        if (!label.empty()) { // é label
-            symbolMap[label] = ilc;
+        if (!label.empty()) { // é definição de label
+            symbolMap[label] = { ilc, false };
             sourceLine >> tok;
         }
 
@@ -135,40 +142,40 @@ size_t parseLineStep1 (
             size_t size;
             int value;
             sourceLine >> size >> value;
-            symbolMap[label] = -1; // valor temporário
+            symbolMap[label].address = 0; // valor temporário
             dataMap[label] = { size, value };
-            return ilc; // não muda ilc
-        }
-
-        if (tok == ".ExternD"){
+        } else if (tok == ".externD"){
             std::string ref;
             sourceLine >> ref;
-            referenceMap[ref] = {'D','E',0};
-            return ilc;
-        }
-
-        if (tok == ".ExternT"){
+            referenceMap[ref] = {'E','D',0};
+            symbolMap[ref] = { 0, true };
+        } else if (tok == ".externT"){
             std::string ref;
             sourceLine >> ref;
-            referenceMap[ref] = {'T','E',0};
-            return ilc;
-        }
-
-        if (tok == ".GlobalD"){
+            referenceMap[ref] = {'E','T',0};
+            symbolMap[ref] = { 0, true };
+        } else if (tok == ".globalD"){
             std::string globl;
             sourceLine >> globl;
-            referenceMap[globl] = {'D','I',0};
-            return ilc;
-        }
-
-        if (tok == ".GlobalT"){
+            referenceMap[globl] = {'G','D',0};
+        } else if (tok == ".globalT"){
             std::string globl;
             sourceLine >> globl;
-            referenceMap[globl] = {'T','I',0};
-            return ilc;
+            referenceMap[globl] = {'G','T',0};
+        } else {
+            // como os externals são definidos no começo do arquivo é seguro assumir que se existe,
+            // ele já está na tabela de relocação (referenceMap).
+            while (sourceLine >> tok) { // procura labels na linha
+                if (tok[0] == '_' && referenceMap.find(tok) != referenceMap.end()) { // é uma label externa
+                    referenceMap[tok].locations.push_back(ilc);
+                }
+            }
+
+            const int instructionSize = 2;
+            return ilc + instructionSize; // incrementa ilc
         }
 
-        return ilc + 2; // incrementa ilc
+        return ilc; // não muda o ilc se for uma pseudo-instrução
     } else {
         return ilc; //não incrementa o ilc, a linha é vazia
     }
@@ -177,12 +184,14 @@ size_t parseLineStep1 (
 /**
  * Faz a etapa 2 do montador para uma linha.
  * @param symbolMap tabela de símbolos
+ * @param referenceMap tabela de referências externas e globais
  * @param line linha do programa não vazia e sem comentários
  * @param output saída já codificada da instrução da linha, caso exista
  * @returns se `output` deve ser considerado ou não como uma codificação de instrução
  **/
 bool parseLineStep2 (
-    std::map<std::string, size_t> &symbolMap,
+    std::map<std::string, sym_data_t> &symbolMap,
+    std::map<std::string, module_meta_t> &referenceMap,
     std::string line,
     unsigned int &output
 ) {
@@ -197,7 +206,11 @@ bool parseLineStep2 (
             sourceLine >> tok;
         }
 
-        if (tok == ".data") { // pseudo
+        if (tok == ".data" || tok == ".externD" || tok == ".externT") { // pseudo
+            return false;
+        } else if (tok == ".globalD" || tok == ".globalT") {
+            sourceLine >> tok;
+            referenceMap[tok].address = symbolMap[tok].address;
             return false;
         }
 
@@ -221,7 +234,7 @@ bool parseLineStep2 (
             case TYPE_MEM_ADR:
                 sourceLine >> tok;
                 if (tok[0] == '_') { // label
-                    output |= (symbolMap.at(tok));
+                    output |= (symbolMap.at(tok).address);
                 } else {
                     output |= (std::stoi(tok) & 0b111111111);
                 }
@@ -232,7 +245,7 @@ bool parseLineStep2 (
                 output |= (registers.at(toLower(tok)) << 9); // 9 = remain_length (11) - register_size (2)
                 sourceLine >> tok;
                 if (tok[0] == '_') { // label
-                    output |= (symbolMap.at(tok));
+                    output |= (symbolMap.at(tok).address);
                 } else {
                     output |= (std::stoi(tok) & 0b111111111);
                 }
@@ -257,8 +270,9 @@ bool parseLineStep2 (
 int main (int argc, char** argv) {
     if (argc < 2 || argc > 3) return help(argv[0]);
 
-    std::map<std::string, size_t> symbolMap;
+    std::map<std::string, sym_data_t> symbolMap;
     std::map<std::string, mem_data_t> dataMap;
+    std::map<std::string, module_meta_t> referenceMap;
 
     std::ifstream sourceFile;
     sourceFile.open(argv[1]);
@@ -279,6 +293,9 @@ int main (int argc, char** argv) {
         std::cout.rdbuf(outputFile.rdbuf());
     }
 
+    std::ios coutOldState(nullptr);
+    coutOldState.copyfmt(std::cout);
+
     std::string line;
 
     size_t ilc = 0;
@@ -288,14 +305,14 @@ int main (int argc, char** argv) {
         size_t firstNonWhiteSpaceIdx = noCommentLine.find_first_not_of(WHITESPACE);
 
         if (firstNonWhiteSpaceIdx != std::string::npos) {
-            ilc = parseLineStep1(symbolMap, dataMap, line, ilc);
+            ilc = parseLineStep1(symbolMap, dataMap, referenceMap, line, ilc);
         }
     }
 
     // nesse ponto, ilc é o próximo endereço livre da memória
 
     for (auto data : dataMap) {
-        symbolMap[data.first] = ilc;
+        symbolMap[data.first].address = ilc;
         ilc += data.second.size;
     }
 
@@ -317,7 +334,7 @@ int main (int argc, char** argv) {
         if (firstNonWhiteSpaceIdx != std::string::npos) {
             line = line.substr(firstNonWhiteSpaceIdx, std::string::npos); // remove o whitespace no começo da linha
             unsigned int result;
-            if (parseLineStep2(symbolMap, line, result)) {
+            if (parseLineStep2(symbolMap, referenceMap, line, result)) {
                 unsigned char b1, b2;
                 b1 = result >> 8;
                 b2 = result;
@@ -344,6 +361,17 @@ int main (int argc, char** argv) {
     // imprime boilerplate do formato de arquivo de saída
     std::cout << "[" << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
     std::cout << "..7F]  :  00000000; \nEND; \n";
+
+    std::cout.copyfmt(coutOldState);
+
+    std::cout << "\n---- START OF THE RELOCATION TABLE ----\n";
+    for (auto ref : referenceMap) {
+        std::cout << "-- " << ref.first << " " << ref.second.locationType << " " << ref.second.referenceType << " ";
+        if (ref.second.locationType == 'G') std::cout << ref.second.address << " ";
+        else for (size_t loc : ref.second.locations) std::cout << loc << " ";
+        std::cout << "\n";
+    }
+    std::cout << "---- END OF THE RELOCATION TABLE ----\n";
 
     sourceFile.close();
     std::cout.rdbuf(coutBuf);
