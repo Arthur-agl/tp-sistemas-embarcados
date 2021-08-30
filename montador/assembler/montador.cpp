@@ -348,6 +348,8 @@ int main (int argc, char** argv) {
         }
     }
 
+    size_t dataStart = byteCount;
+
     for (auto data : dataMap) {
         for (int i = data.second.size - 1; i >= 0; i--) {
             std::cout << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
@@ -365,6 +367,7 @@ int main (int argc, char** argv) {
     std::cout.copyfmt(coutOldState);
 
     std::cout << "\n---- START OF THE RELOCATION TABLE ----\n";
+    std::cout << "-- !text: 0 \n-- !data: " << dataStart << "\n-- !end: " << byteCount << "\n--\n";
     for (auto ref : referenceMap) {
         std::cout << "-- " << ref.first << " " << ref.second.locationType << " " << ref.second.referenceType << " ";
         if (ref.second.locationType == 'G') std::cout << ref.second.address << " ";
