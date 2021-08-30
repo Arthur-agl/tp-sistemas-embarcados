@@ -7,7 +7,7 @@
 #include <bitset>
 
 int help (char* binName) {
-    std::cerr << "Usage: " << binName << " <source_file> [output_file]" << std::endl;
+    std::cerr << "Usage: " << binName << " <source_file> <output_file>" << std::endl;
     return 1;
 }
 
@@ -268,7 +268,7 @@ bool parseLineStep2 (
 }
 
 int main (int argc, char** argv) {
-    if (argc < 2 || argc > 3) return help(argv[0]);
+    if (argc != 3) return help(argv[0]);
 
     std::map<std::string, sym_data_t> symbolMap;
     std::map<std::string, mem_data_t> dataMap;
@@ -366,17 +366,29 @@ int main (int argc, char** argv) {
 
     std::cout.copyfmt(coutOldState);
 
-    std::cout << "\n---- START OF THE RELOCATION TABLE ----\n";
-    std::cout << "-- !text: 0 \n-- !data: " << dataStart << "\n-- !end: " << byteCount << "\n--\n";
+    // std::cout << "\n---- START OF THE RELOCATION TABLE ----\n";
+    // std::cout << "-- !text: 0 \n-- !data: " << dataStart << "\n-- !end: " << byteCount << "\n--\n";
+    // for (auto ref : referenceMap) {
+    //     std::cout << "-- " << ref.first << " " << ref.second.locationType << " " << ref.second.referenceType << " ";
+    //     if (ref.second.locationType == 'G') std::cout << ref.second.address << " ";
+    //     else for (size_t loc : ref.second.locations) std::cout << loc << " ";
+    //     std::cout << "\n";
+    // }
+    // std::cout << "---- END OF THE RELOCATION TABLE ----\n";
+
+    std::ofstream symOutputFile;
+    symOutputFile.open(std::string(argv[2]) + ".sym");
+    symOutputFile << "!text: 0 \n!data: " << dataStart << "\n!end: " << byteCount << "\n\n";
+
     for (auto ref : referenceMap) {
-        std::cout << "-- " << ref.first << " " << ref.second.locationType << " " << ref.second.referenceType << " ";
-        if (ref.second.locationType == 'G') std::cout << ref.second.address << " ";
-        else for (size_t loc : ref.second.locations) std::cout << loc << " ";
-        std::cout << "\n";
+        symOutputFile << ref.first << " " << ref.second.locationType << " " << ref.second.referenceType << " ";
+        if (ref.second.locationType == 'G') symOutputFile << ref.second.address << " ";
+        else for (size_t loc : ref.second.locations) symOutputFile << loc << " ";
+        symOutputFile << "\n";
     }
-    std::cout << "---- END OF THE RELOCATION TABLE ----\n";
 
     sourceFile.close();
+    symOutputFile.close();
     std::cout.rdbuf(coutBuf);
     if (outputFile.is_open()) outputFile.close();
     return 0;

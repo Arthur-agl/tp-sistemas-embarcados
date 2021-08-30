@@ -2,18 +2,20 @@
 ; and outputs the n-th Fibonacci number,
 ; assuming the sequence starts at 0 (0,1,1,2,3,5,8,13,...)
 
+.externD _arxu
+
 _Start: read A0
 
         ;; test if input <= 1.
         move A0 A2
         load_c A1 2
         subtract A2 A1
-        jmpn A2 _Ret0
+        jmpn A2 _arxu
 
         ;; test if input == 2.
         load_c A1 2
         subtract A1 A0
-        jmpz A1 _Ret1
+        jmpz A1 _arxu
 
         ;; Set up the stack with the initial values.
         load_c A1 0
