@@ -38,50 +38,70 @@ typedef struct module_meta {
 
 typedef std::vector<unsigned long> module_t;
 
+void addModuleOffset(module_t &module, module_meta_t &moduleMeta, size_t offset){
+    // Ajustar referências externas (.externD e .externT) e endereço das labels globais (.globalT)
+    for(auto &item : moduleMeta.relocTable){
+        if(item.locationType == 'E'){
+            for (auto &location : item.locations){
+                location += offset;
+            }
+        }
+        if(item.locationType == 'G' && item.referenceType == 'T'){
+            item.address += offset;
+        }
+    }
+}
+
 int main (int argc, char** argv) {
-    //if (argc < 3) return help(argv[0]);
+    if (argc < 3) return help(argv[0]);
 
     std::map<std::string, size_t> symbolMap;
-
     std::vector<module_t> modules;
     std::vector<module_meta_t> symTables;
 
-    for (int i=1; i<argc; i++){
-        std::ifstream sourceFile;
-        module_t module;
-        sourceFile.open(argv[i]);
+    int moduleCount = argc - 2;
+    std::vector<module_t> outputModule;
 
-        if (!sourceFile.is_open()) {
+    for (int i=1; i<argc; i++){
+        std::ifstream symFile;
+        std::ifstream mifFile;
+        std::string line;
+        module_t module;
+
+        mifFile.open(argv[i]);
+
+        if (!mifFile.is_open()) {
             std::cerr << "Unable to open file for reading " << argv[i] << "\n";
             return 2;
         }
 
         std::string line;
         // Pular cabeçalho
-        while(std::getline(sourceFile,line))
+        while(std::getline(mifFile,line))
             if (line == "BEGIN") break;
+        std::getline(mifFile,line);
 
-        std::getline(sourceFile,line);
-        while(std::getline(sourceFile,line)){
+        while(std::getline(mifFile,line)){
             if(line[0] == '[') break;
             
             // get 8 bits
             std::string str2 = line.substr(13,21);
             module.push_back(std::stoul(str2, nullptr, 2));
         }
-        sourceFile.close();
+        mifFile.close();
 
-        std::ifstream symFile;
+        // Guarda os metadados presentes no arquivo .sym
         symFile.open(std::string(argv[i]) + ".sym");
         if (!symFile.is_open()) {
             std::cerr << "Unable to open sym file for reading " << argv[i] << ".sym\n";
             return 2;
         }
 
-        module_meta_t metaTable;
-        symFile >> line >> line >> line >> metaTable.dataStart >> line >> metaTable.dataEnd;
+        module_meta_t symMetaData;
+        std::string _discard;
+        symFile >> _discard >> _discard >> _discard >> symMetaData.dataStart >> _discard >> symMetaData.dataEnd;
 
-        // get tabela de relocação
+        // Guarda a tabela de relocação presente no arquivo .sym
         while(std::getline(symFile, line)){
             std::istringstream iss(line);
             reloc_data_t relocData;
@@ -95,9 +115,46 @@ int main (int argc, char** argv) {
             }
         }
 
+        symFile.close();
+        symTables.push_back(symMetaData);
+
+        // mifFile.open(argv[i]);
+        // if (!mifFile.is_open()) {
+        //     std::cerr << "Unable to open file for reading " << argv[i] << "\n";
+        //     return 2;
+        // }
+
+        // // Pula o cabeçalho
+        // while(std::getline(mifFile,line))
+        //     if (line == "BEGIN") break;
+        // std::getline(mifFile,line);
+
+        // // Guarda a seção de código (.text) do módulo
+        // int totalInstructionCount = symMetaData.dataStart - 1;
+        // for(int i=0; i<totalInstructionCount; i++){
+        //     std::getline(mifFile,line);
+        //     std::string str2 = line.substr(13,21);
+        //     module.push_back(std::stoul(str2, nullptr, 2));
+        // }
+
+        mifFile.close();
         modules.push_back(module);
-        symTables.push_back(metaTable);
-        
+    }
+
+    // Início da ligação dos módulos
+
+    // Política de ligação:
+    //     1. Código e dados são separados. O arquivo final começa com os códigos concatenados e termina com a memória de dados concatenados
+    //     2. A ordem dos módulos é definida pela ordem dos arquivos declarada na linha de comando
+
+    // Concatenação dos códigos e atualização de referências
+    for (int i=0; i<moduleCount; i++){
+        // Adiciona a seção de código ao output
+        outputModule.push_back(modules[i]);
+
+        for (int j=i+1; j<=moduleCount; j++){
+            addModuleOffset(modules[j], symTables[j], modules[j].size());
+        }
     }
 
     // std::ofstream outputFile;
