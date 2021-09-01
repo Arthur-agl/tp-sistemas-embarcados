@@ -11,9 +11,6 @@ int help (char* binName) {
     return 1;
 }
 
-const std::string WHITESPACE = " \n\r\t\f\v";
-const size_t MY_INFINITY = 4269;
-
 /**
  * Transforma um número sem sinal de 8 bits em uma string contendo sua representação em binário.
  * @param bin número sem sinal de 8 bits
@@ -80,7 +77,7 @@ int main (int argc, char** argv) {
         module_meta_t symMetaData;
         std::string _discard, tok;
 
-        // Lê a tabela de relocação presente no arquivo .sym
+        // Lê a tabela de relocação
         while (std::getline(mifFile, line)) {
             if (line == "") continue;
             if (line == "---- END OF THE RELOCATION TABLE ----") break;
@@ -111,6 +108,7 @@ int main (int argc, char** argv) {
         mifFile.close();
     }
 
+    // acerta o endereço de início e fim de cada módulo, e os endereços das labels globais
     for (size_t i = 1; i < modules.size(); i++) {
         symTables[i].start = symTables[i-1].end;
         symTables[i].end += symTables[i].start;
@@ -121,6 +119,7 @@ int main (int argc, char** argv) {
         }
     }
 
+    // substituição das referências internas e externas
     for (size_t i = 0; i < modules.size(); i++) {
         module_t &thisModule = modules[i];
         module_meta_t &symTable = symTables[i];
@@ -131,9 +130,9 @@ int main (int argc, char** argv) {
         // insere labels externas
         for (reloc_data_t &relocData : symTable.relocTable) {
             if (relocData.type == 'E') { 
-                size_t labelAddr = MY_INFINITY;
+                size_t labelAddr = -1;
                 for (module_meta_t &st : symTables) {
-                    if (labelAddr != MY_INFINITY) break;
+                    if (labelAddr != -1) break;
                     for (reloc_data_t &rd : st.relocTable) {
                         if (rd.type == 'G' && rd.referenceName == relocData.referenceName) {
                             labelAddr = rd.address;
@@ -141,7 +140,7 @@ int main (int argc, char** argv) {
                         }
                     }
                 }
-                if (labelAddr == MY_INFINITY) {
+                if (labelAddr == -1) {
                     std::cerr << "Reference not found: " << relocData.referenceName << "\n\tat " << argv[i+1] << '\n';
                     exit(1);
                 }
