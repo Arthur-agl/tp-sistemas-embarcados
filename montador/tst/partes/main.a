@@ -1,0 +1,14 @@
+.globalD _b
+.externT _c
+
+_a: .data 2 42
+_b: .data 2 3
+
+_main: jump _t
+
+_t2: load_c A0 111
+write A0
+
+_t: load_c A0 1
+write A0
+jump _c

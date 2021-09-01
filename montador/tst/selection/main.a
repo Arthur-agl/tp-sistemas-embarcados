@@ -1,0 +1,14 @@
+.externT _sort
+.globalD _n
+
+_n: .data 2 1
+
+load_c A1 1
+load A0 _n
+_l1: jmpz A0 _end
+    read A2
+    push A2
+    subtract A0 A1
+    jump _l1
+_end: call _sort
+stop

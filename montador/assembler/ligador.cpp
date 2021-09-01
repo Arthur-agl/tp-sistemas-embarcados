@@ -76,6 +76,7 @@ int main (int argc, char** argv) {
 
         module_meta_t symMetaData;
         std::string _discard, tok;
+        symMetaData.start = 0;
 
         // Lê a tabela de relocação
         while (std::getline(mifFile, line)) {
@@ -133,7 +134,7 @@ int main (int argc, char** argv) {
             if (relocData.type == 'E') { // se label externa
                 size_t labelAddr = -1;
                 for (module_meta_t &st : symTables) { // procura nas tabelas de símbolos
-                    if (labelAddr != -1) break;
+                    if (labelAddr != (size_t) -1) break;
                     for (reloc_data_t &rd : st.relocTable) {
                         if (rd.type == 'G' && rd.referenceName == relocData.referenceName) { // achou
                             labelAddr = rd.address;
@@ -141,7 +142,7 @@ int main (int argc, char** argv) {
                         }
                     }
                 }
-                if (labelAddr == -1) { // não achou
+                if (labelAddr == (size_t) -1) { // não achou
                     std::cerr << "Reference not found: " << relocData.referenceName << "\n\tat " << argv[i+1] << '\n';
                     exit(1);
                 }
@@ -181,8 +182,10 @@ int main (int argc, char** argv) {
     }
 
     // imprime boilerplate do formato de arquivo de saída
-    std::cout << "[" << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
-    std::cout << "..7F]  :  00000000; \nEND; \n";
+    if (byteCount < 128) {
+        std::cout << "[" << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount << "..7F]  :  00000000; \n";
+    }
+    std::cout << "END; \n";
 
     std::cout.rdbuf(coutBuf);
     if (outputFile.is_open()) outputFile.close();

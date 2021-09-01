@@ -1,0 +1,73 @@
+.globalT _sort
+.externD _n                     ; número de elementos do vetor
+
+_greater: .data 2 0
+
+; void _sort (...vec)
+_sort: load A0 _n               ; A0 = n
+    copytop A1                  ; 
+    load_c A2 2
+    subtract A1 A2              ; A1 -= n*2 - 2; (ou A1 = vec)
+    subtract A1 A0              ; 
+    subtract A1 A0              ; 
+    
+    load_c A2 0                 ; (A2) i = 0
+
+_loop1: move A2 A3
+    subtract A3 A0
+    jmpz A3 _end_loop1          ; if (i == n) break;
+
+    store A2 _greater           ; _greater = i
+    load_c A3 1                 ; (A3) j = 1
+    add A3 A2                   ; (A3) j += i
+    push A2                     ; push i
+
+_loop2: move A3 A2
+    subtract A2 A0
+    jmpz A2 _end_loop2          ; if (j == n) break;
+
+    move A1 A2
+    add A2 A3
+    add A2 A3
+    load_i A0 A2                ; A0 = vec[j]
+    load A2 _greater
+    add A2 A1
+    add A2 A1
+    load_i A2 A2                ; A2 = vec[_greater]
+    subtract A2 A0
+    jmpn A2 _new_greater        ; if (vec[j] > vec[_greater]) goto _new_greater
+    jump _end_if                 ; else goto _end_if
+
+_new_greater: store A3 _greater ; _greater = j
+
+_end_if: load_c A2 1
+    add A3 A2
+    jump _loop2
+
+_end_loop2: load A3 _greater
+    add A3 A1
+    add A3 A1
+    load_i A0 A3                ; A0 = vec[_greater]
+    
+    pop A2                      ; pop i
+    push A0                     ; push vec[_greater]
+
+    move A2 A0                  
+    add A0 A1
+    add A0 A1
+    load_i A0 A0                ; A0 = vec[i]
+
+    store_i A0 A3               ; stack[A3] = A0 (vec[_grater] = vec[i])
+    pop A0                      ; pop vec[_greater]
+
+    move A2 A3
+    add A3 A1
+    add A3 A1
+    store_i A0 A3               ; stack[A3] = A0 (vec[i] = vec[_grater])
+    
+    load A0 _n
+    load_c A3 1
+    add A2 A3
+    jump _loop1
+
+_end_loop1: return

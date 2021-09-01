@@ -1,0 +1,13 @@
+.globalT _t2
+
+_a: .data 2 12
+_b: .data 2 5
+
+load_c A0 333
+write A0
+
+_t2: load_c A0 4
+load A1 _b
+write A0
+write A1
+stop
