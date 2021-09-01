@@ -7,11 +7,12 @@
 #include <bitset>
 
 int help (char* binName) {
-    std::cerr << "Usage: " << binName << " <source_file> <output_file>" << std::endl;
+    std::cerr << "Usage: " << binName << " <source_file> [output_file]" << std::endl;
     return 1;
 }
 
 const std::string WHITESPACE = " \n\r\t\f\v";
+const std::string INTERNAL_KEY = "!internal";
 
 // Cada caractere representa 1 bit da instrução
 enum instruction_type {
@@ -39,10 +40,9 @@ typedef struct mem_data {
     long long value;
 } mem_data_t;
 
-// entrada da tabela de relocação
+// entrada da tabela de relocação (ou dados extras)
 typedef struct module_meta {
-    char locationType;   // (E)xternal ou (G)lobal
-    char referenceType;  // (D)ata ou (T)ext
+    char type;   // (E)xternal, (G)lobal, (!)meta
     size_t address;
     std::vector<size_t> locations;
 } module_meta_t;
@@ -147,27 +147,32 @@ size_t parseLineStep1 (
         } else if (tok == ".externD"){
             std::string ref;
             sourceLine >> ref;
-            referenceMap[ref] = {'E','D',0};
+            referenceMap[ref] = {'E', 0};
             symbolMap[ref] = { 0, true };
         } else if (tok == ".externT"){
             std::string ref;
             sourceLine >> ref;
-            referenceMap[ref] = {'E','T',0};
+            referenceMap[ref] = {'E', 0};
             symbolMap[ref] = { 0, true };
         } else if (tok == ".globalD"){
             std::string globl;
             sourceLine >> globl;
-            referenceMap[globl] = {'G','D',0};
+            referenceMap[globl] = {'G', 0};
         } else if (tok == ".globalT"){
             std::string globl;
             sourceLine >> globl;
-            referenceMap[globl] = {'G','T',0};
+            referenceMap[globl] = {'G', 0};
         } else {
             // como os externals são definidos no começo do arquivo é seguro assumir que se existe,
             // ele já está na tabela de relocação (referenceMap).
             while (sourceLine >> tok) { // procura labels na linha
-                if (tok[0] == '_' && referenceMap.find(tok) != referenceMap.end()) { // é uma label externa
-                    referenceMap[tok].locations.push_back(ilc);
+                if (tok[0] == '_') {
+                    bool found = referenceMap.find(tok) != referenceMap.end();
+                    if (found && referenceMap[tok].type == 'E') { // externa
+                        referenceMap[tok].locations.push_back(ilc);
+                    } else { // Global ou interna
+                        referenceMap[INTERNAL_KEY].locations.push_back(ilc);
+                    }
                 }
             }
 
@@ -268,11 +273,13 @@ bool parseLineStep2 (
 }
 
 int main (int argc, char** argv) {
-    if (argc != 3) return help(argv[0]);
+    if (argc < 2 || argc > 3) return help(argv[0]);
 
     std::map<std::string, sym_data_t> symbolMap;
     std::map<std::string, mem_data_t> dataMap;
     std::map<std::string, module_meta_t> referenceMap;
+
+    referenceMap[INTERNAL_KEY] = { '!', 0 };
 
     std::ifstream sourceFile;
     sourceFile.open(argv[1]);
@@ -305,13 +312,13 @@ int main (int argc, char** argv) {
         size_t firstNonWhiteSpaceIdx = noCommentLine.find_first_not_of(WHITESPACE);
 
         if (firstNonWhiteSpaceIdx != std::string::npos) {
-            ilc = parseLineStep1(symbolMap, dataMap, referenceMap, line, ilc);
+            ilc = parseLineStep1(symbolMap, dataMap, referenceMap, noCommentLine, ilc);
         }
     }
 
     // nesse ponto, ilc é o próximo endereço livre da memória
 
-    for (auto data : dataMap) {
+    for (auto &data : dataMap) {
         symbolMap[data.first].address = ilc;
         ilc += data.second.size;
     }
@@ -348,9 +355,7 @@ int main (int argc, char** argv) {
         }
     }
 
-    size_t dataStart = byteCount;
-
-    for (auto data : dataMap) {
+    for (auto &data : dataMap) {
         for (int i = data.second.size - 1; i >= 0; i--) {
             std::cout << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << byteCount;
             std::cout << "        :  " << byte2str((unsigned char) (data.second.value  >> (i*8)));
@@ -366,29 +371,34 @@ int main (int argc, char** argv) {
 
     std::cout.copyfmt(coutOldState);
 
-    // std::cout << "\n---- START OF THE RELOCATION TABLE ----\n";
-    // std::cout << "-- !text: 0 \n-- !data: " << dataStart << "\n-- !end: " << byteCount << "\n--\n";
-    // for (auto ref : referenceMap) {
-    //     std::cout << "-- " << ref.first << " " << ref.second.locationType << " " << ref.second.referenceType << " ";
-    //     if (ref.second.locationType == 'G') std::cout << ref.second.address << " ";
-    //     else for (size_t loc : ref.second.locations) std::cout << loc << " ";
-    //     std::cout << "\n";
-    // }
-    // std::cout << "---- END OF THE RELOCATION TABLE ----\n";
-
-    std::ofstream symOutputFile;
-    symOutputFile.open(std::string(argv[2]) + ".sym");
-    symOutputFile << "!text: 0 \n!data: " << dataStart << "\n!end: " << byteCount << "\n\n";
-
-    for (auto ref : referenceMap) {
-        symOutputFile << ref.first << " " << ref.second.locationType << " " << ref.second.referenceType << " ";
-        if (ref.second.locationType == 'G') symOutputFile << ref.second.address << " ";
-        else for (size_t loc : ref.second.locations) symOutputFile << loc << " ";
-        symOutputFile << "\n";
+    std::cout << "\n---- START OF THE RELOCATION TABLE ----\n";
+    std::cout << "-- !end: " << byteCount << "\n-- !internal: ";
+    for (size_t loc : referenceMap[INTERNAL_KEY].locations) std::cout << loc << " ";
+    std::cout << "\n--\n";
+    referenceMap.erase(INTERNAL_KEY);
+    for (auto &ref : referenceMap) {
+        std::cout << "-- " << ref.first << " " << ref.second.type << " ";
+        if (ref.second.type == 'G') std::cout << ref.second.address << " ";
+        else for (size_t loc : ref.second.locations) std::cout << loc << " ";
+        std::cout << "\n";
     }
+    std::cout << "---- END OF THE RELOCATION TABLE ----\n";
+
+    // std::ofstream symOutputFile;
+    // symOutputFile.open(std::string(argv[2]) + ".sym");
+    // symOutputFile << "!end: " << byteCount << "\n!internal: ";
+    // for (size_t loc : referenceMap[INTERNAL_KEY].locations) symOutputFile << loc << " ";
+    // symOutputFile << "\n\n";
+    // referenceMap.erase(INTERNAL_KEY);
+    // for (auto &ref : referenceMap) {
+    //     symOutputFile << ref.first << " " << ref.second.type << " ";
+    //     if (ref.second.type == 'G') symOutputFile << ref.second.address << " ";
+    //     else for (size_t loc : ref.second.locations) symOutputFile << loc << " ";
+    //     symOutputFile << "\n";
+    // }
+    // symOutputFile.close();
 
     sourceFile.close();
-    symOutputFile.close();
     std::cout.rdbuf(coutBuf);
     if (outputFile.is_open()) outputFile.close();
     return 0;
