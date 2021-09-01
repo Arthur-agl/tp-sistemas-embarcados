@@ -39,20 +39,6 @@ typedef struct module_meta {
 
 typedef std::vector<unsigned long> module_t;
 
-void addModuleOffset(module_t &module, module_meta_t &moduleMeta, size_t offset){
-    // Ajustar referências externas (.externD e .externT) e endereço das labels globais (.globalT)
-    for (auto &item : moduleMeta.relocTable){
-        if(item.type == 'E'){
-            for (auto &location : item.locations){
-                location += offset;
-            }
-        }
-        if(item.type == 'G'){
-            item.address += offset;
-        }
-    }
-}
-
 int main (int argc, char** argv) {
     if (argc < 3) return help(argv[0]);
 
@@ -166,21 +152,6 @@ int main (int argc, char** argv) {
             }
         }
     }
-
-    // for (size_t i = 0; i < symTables.size(); i++) {
-    //     module_meta_t &symMetaData = symTables[i];
-    //     std::cout << "========= " << argv[i + 1] << "\n";
-    //     std::cout << "start: " << symMetaData.start << "\nend: " << symMetaData.end << "\ninternal: ";
-    //     for (size_t v : symMetaData.internalRelocTable) std::cout << v << " ";
-    //     std::cout << "\ndata:\n";
-    //     for (auto &v : symMetaData.relocTable) {
-    //         std::cout << v.referenceName << "\t" << v.type << "\t";
-    //         if (v.type == 'G') std::cout << v.address;
-    //         else for (auto &vv : v.locations) std::cout << vv << " ";
-    //         std::cout << "\n";
-    //     }
-    //     std::cout << "\n";
-    // }
 
     std::ofstream outputFile;
     std::streambuf *coutBuf = std::cout.rdbuf(); // salva o buffer do cout

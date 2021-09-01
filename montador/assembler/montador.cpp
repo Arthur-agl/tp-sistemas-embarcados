@@ -384,20 +384,6 @@ int main (int argc, char** argv) {
     }
     std::cout << "---- END OF THE RELOCATION TABLE ----\n";
 
-    // std::ofstream symOutputFile;
-    // symOutputFile.open(std::string(argv[2]) + ".sym");
-    // symOutputFile << "!end: " << byteCount << "\n!internal: ";
-    // for (size_t loc : referenceMap[INTERNAL_KEY].locations) symOutputFile << loc << " ";
-    // symOutputFile << "\n\n";
-    // referenceMap.erase(INTERNAL_KEY);
-    // for (auto &ref : referenceMap) {
-    //     symOutputFile << ref.first << " " << ref.second.type << " ";
-    //     if (ref.second.type == 'G') symOutputFile << ref.second.address << " ";
-    //     else for (size_t loc : ref.second.locations) symOutputFile << loc << " ";
-    //     symOutputFile << "\n";
-    // }
-    // symOutputFile.close();
-
     sourceFile.close();
     std::cout.rdbuf(coutBuf);
     if (outputFile.is_open()) outputFile.close();

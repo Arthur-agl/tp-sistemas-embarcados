@@ -1,0 +1,11 @@
+; This program reads one number greater than zero n
+; and outputs the n-th Fibonacci number,
+; assuming the sequence starts at 1 (1,1,2,3,5,8,13,...)
+
+.externT _fib
+
+_main: read A0
+    push A0 ; parametro de _fib
+    call _fib
+    write A0 ; escreve o retorno de _fib
+    stop
