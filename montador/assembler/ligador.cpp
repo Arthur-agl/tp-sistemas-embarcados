@@ -125,27 +125,29 @@ int main (int argc, char** argv) {
         module_meta_t &symTable = symTables[i];
         // reloca labels internas
         for (size_t addr : symTable.internalRelocTable) {
+            // atualiza só os últimos 8 bits do endereço porque a memória tem apenas 128 bytes, o bit 9 é sempre 0
             thisModule[addr + 1] += symTable.start;
         }
         // insere labels externas
         for (reloc_data_t &relocData : symTable.relocTable) {
-            if (relocData.type == 'E') { 
+            if (relocData.type == 'E') { // se label externa
                 size_t labelAddr = -1;
-                for (module_meta_t &st : symTables) {
+                for (module_meta_t &st : symTables) { // procura nas tabelas de símbolos
                     if (labelAddr != -1) break;
                     for (reloc_data_t &rd : st.relocTable) {
-                        if (rd.type == 'G' && rd.referenceName == relocData.referenceName) {
+                        if (rd.type == 'G' && rd.referenceName == relocData.referenceName) { // achou
                             labelAddr = rd.address;
                             break;
                         }
                     }
                 }
-                if (labelAddr == -1) {
+                if (labelAddr == -1) { // não achou
                     std::cerr << "Reference not found: " << relocData.referenceName << "\n\tat " << argv[i+1] << '\n';
                     exit(1);
                 }
 
                 for (size_t addr : relocData.locations) {
+                    // atualiza só os últimos 8 bits do endereço porque a memória tem apenas 128 bytes, o bit 9 é sempre 0
                     thisModule[addr + 1] = labelAddr;
                 }
             }
