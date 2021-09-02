@@ -1,0 +1,27 @@
+;; Calculates the mean value of a 3-number list
+;; Uses memory references for testing reasons
+
+.globalT _MeanFunc
+.globalD _MeanVal
+.externD _NumA
+.externD _NumB
+.externD _NumC
+
+_MeanFunc:  load_c A0 0
+
+            load A1 _NumA
+            add A0 A1
+
+            load A1 _NumB
+            add A0 A1
+
+            load A1 _NumC
+            add A0 A1
+
+            load_c A1 3
+            divide A0 A1
+
+            return
+            stop
+
+_MeanVal: .data 2 4000

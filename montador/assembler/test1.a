@@ -1,0 +1,48 @@
+;; Simple function to test module linking
+;; Reads 3 numbers from the user, then prints the maximun number between them,
+;; followed by the mean (rounded down)
+
+.globalD _NumA
+.globalD _NumB
+.globalD _NumC
+.externT _MeanFunc
+.externT _MaxFunc
+.externD _MeanVal
+.externD _MaxNum
+
+_Main: read A0
+    store A0 _NumA ; Get 1st number
+
+    read  A1
+    store A1 _NumB ; Get 2nd number
+
+    push A0
+    push A1
+    call _MaxFunc  ; Call max function, then clean the stack
+    pop A3
+    pop A3
+
+    read  A2
+    store A2 _NumC ; Get 3rd number
+
+    push A0        ; Funciton result
+    push A2
+    call _MaxFunc  ; Call max function, then clean the stack
+    pop A3
+    pop A3
+
+    store A0 _MaxNum
+    call _MeanFunc
+
+    store A0 _MeanVal
+
+    load A1 _MaxNum
+    write A1
+
+    load A1 _MeanVal ; Write results
+    write A1
+    stop
+
+_NumA: .data 2 4000
+_NumB: .data 2 4000
+_NumC: .data 2 4000

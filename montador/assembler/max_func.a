@@ -1,0 +1,19 @@
+;; Simple max(a,b) function
+
+.globalT _MaxFunc
+.globalD _MaxNum
+
+_MaxFunc:   load_s A0 6    ; Get a
+            load_s A1 4    ; Get b
+
+            subtract A0 A1 ; Check a < b
+            jmpn A0 _ReturnB 
+
+            add A0 A1      ; Else restore A and return
+            jump _Stop
+
+_ReturnB: move A1 A0
+_Stop:      return
+            stop
+
+_MaxNum: .data 2 4000
