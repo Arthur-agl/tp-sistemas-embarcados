@@ -7,7 +7,7 @@ load_c A0 333
 write A0
 
 _t2: load_c A0 4
-load A1 _b
-write A0
-write A1
-stop
+    load A1 _b
+    write A0
+    write A1
+    stop

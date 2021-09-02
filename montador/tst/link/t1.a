@@ -5,11 +5,11 @@
 _a: .data 2 2
 
 _c: jump _t
-load_c A0 222
-write A0
+    load_c A0 222
+    write A0
 
 _t: load A0 _a
-load A1 _b
-write A0
-write A1
-jump _t2
+    load A1 _b
+    write A0
+    write A1
+    jump _t2
